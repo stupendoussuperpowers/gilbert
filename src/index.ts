@@ -5,13 +5,14 @@ import fs from 'fs';
 import Table from 'cli-table';
 import {spawn} from 'child_process';
 import {createProxyMiddleware} from 'http-proxy-middleware';
-import chalk from 'chalk';
+import chalk, {Chalk} from 'chalk';
+import path from 'path';
 
 const app: express.Application = express();
 
 interface configuration {
     dispatch: any,
-    service: [],
+    services: [],
 }
 
 interface serviceConfiguration {
@@ -19,6 +20,7 @@ interface serviceConfiguration {
     path: string,
     routes: [],
     runtime: string,
+    colorStyle: any,
 }
 
 interface LooseObject {
@@ -37,10 +39,8 @@ const table = new Table({
   head: ['service', 'host', 'dispatched routes'],
 });
 
-table.push(['service1', 'host1', 'dispatch1']);
-
 function readConfigFile() {
-  file = fs.readFileSync(`./${configFilePath}`, 'utf8');
+  file = fs.readFileSync(path.join(__dirname, `./${configFilePath}`), 'utf8');
   configFile = yaml.parse(file);
   // If path provided
   if (!Array.isArray(configFile.dispatch)) {
@@ -71,7 +71,7 @@ function createApp(serviceConfig: serviceConfiguration) {
 
   const currentPortMap = addPortMap(serviceConfig.service);
 
-  const subprocess = spawn(command, [`${serviceConfig.path}/index.js`], {
+  const subprocess = spawn(command, [path.join(__dirname, `${serviceConfig.path}/index.js`)], {
     cwd: `${process.cwd()}`,
     env: {
       PATH: process.env.path,
@@ -79,7 +79,7 @@ function createApp(serviceConfig: serviceConfiguration) {
     },
   });
 
-  const prefix = chalk.magenta(`[${currentPortMap.index}] ${serviceConfig.service}`.padEnd(15) + '|');
+  const prefix = serviceConfig.colorStyle(`[${currentPortMap.index}] ${serviceConfig.service}`.padEnd(15) + '|');
 
   subprocess.stdout.on('data', (data) => {
     const lines = `${data}`.split('\n');
@@ -106,9 +106,16 @@ function createApp(serviceConfig: serviceConfiguration) {
 }
 
 function processConfigFile() {
-  serviceMap = configFile.service.map((servicePath, index) => {
+  const colorMaps = [
+    chalk.magenta,
+    chalk.red,
+    chalk.yellow,
+    chalk.green,
+  ];
+
+  serviceMap = configFile.services.map((servicePath, index) => {
     const serviceConfig: serviceConfiguration = yaml.parse(
-        fs.readFileSync(`${servicePath}/app.yaml`, 'utf8'),
+        fs.readFileSync(path.join(__dirname, `${servicePath}/app.yaml`), 'utf8'),
     );
 
     const dispatchRoutes: [] = configFile.dispatch.
@@ -117,10 +124,15 @@ function processConfigFile() {
 
     serviceConfig.path = servicePath;
     serviceConfig.routes = dispatchRoutes;
+    serviceConfig.colorStyle = colorMaps[index%colorMaps.length];
     createApp(serviceConfig);
     return null;
   });
 }
 
+readConfigFile();
+processConfigFile();
+
+console.log(__dirname);
 
 app.listen(port, () => console.log(`Running the following services:\n${table.toString()}\n`));
