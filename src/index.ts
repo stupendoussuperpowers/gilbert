@@ -1,185 +1,126 @@
-
-// const express = require("express");
-// const app = express();
-
+/* eslint-disable max-len */
 import express from 'express';
+import yaml from 'yaml';
+import fs from 'fs';
+import Table from 'cli-table';
+import {spawn} from 'child_process';
+import {createProxyMiddleware} from 'http-proxy-middleware';
+import chalk from 'chalk';
 
 const app: express.Application = express();
 
+interface configuration {
+    dispatch: any,
+    service: [],
+}
 
-// const yaml = require("yaml");
-// const fs = require("fs");
+interface serviceConfiguration {
+    service: string,
+    path: string,
+    routes: [],
+    runtime: string,
+}
 
-// const Table = require("cli-table");
-// const colors = require("colors");
+interface LooseObject {
+  [key: string] : any
+}
 
-// var configuration = {
-//   configFilePath: "config.yaml",
-//   port: 5050,
-//   file: null,
-//   configFile: null,
-//   serviceMap: null,
-// };
+const configFilePath = 'config.yaml';
+const port = 5050;
 
-// var configFilePath = "config.yaml";
-// var port = 5050;
+let file :string;
+let configFile:configuration;
 
-// var file;
-// var configFile;
+let serviceMap: Object;
 
-// var serviceMap;
+const table = new Table({
+  head: ['service', 'host', 'dispatched routes'],
+});
 
-// var table = new Table({
-//   head: ["service".green, "host".green, "dispatched routes".green],
-// });
+table.push(['service1', 'host1', 'dispatch1']);
 
-// // Read CLI arguments
-// function readCli() {
-//   if (process.argv.length >= 3) {
-//     configFilePath = process.argv[2];
-//   }
-// }
+function readConfigFile() {
+  file = fs.readFileSync(`./${configFilePath}`, 'utf8');
+  configFile = yaml.parse(file);
+  // If path provided
+  if (!Array.isArray(configFile.dispatch)) {
+    configFile.dispatch = yaml.parse(
+        fs.readFileSync(`${configFile.dispatch}`, 'utf8'),
+    ).dispatch;
+  }
+  console.log('✓ Read config file');
+}
 
-// // Reading config file
+const portMapping: LooseObject = {};
 
-// function readConfigFile() {
-//   file = fs.readFileSync(`./${configFilePath}`, "utf8");
-//   configFile = yaml.parse(file);
-//   //If path provided
-//   if (!Array.isArray(configFile.dispatch)) {
-//     configFile.dispatch = yaml.parse(
-//       fs.readFileSync(`${configFile.dispatch}`, "utf8")
-//     ).dispatch;
-//   }
-//   console.log("✓ Read config file");
-// }
+function addPortMap(serviceName: string) {
+  portMapping[serviceName] = {
+    index: Object.keys(portMapping).length,
+    PORT: 4000 + 40* Object.keys(portMapping).length,
+  };
+  return portMapping[serviceName];
+}
 
-// // Processing config files for services
+function createApp(serviceConfig: serviceConfiguration) {
+  let command = '';
+  if (serviceConfig.runtime === 'nodejs14') {
+    command = 'node';
+  } else {
+    throw Error(`Invalid runtime for ${serviceConfig.service}`);
+  }
 
-// // function processConfig() {
-// //   serviceMap = configFile.services.map((servicePath, index) => {
-// //     var serviceConfig = yaml.parse(
-// //       fs.readFileSync(`${servicePath}/app.yaml`, "utf8")
-// //     );
+  const currentPortMap = addPortMap(serviceConfig.service);
 
-// //     var curApp = require(servicePath);
+  const subprocess = spawn(command, [`${serviceConfig.path}/index.js`], {
+    cwd: `${process.cwd()}`,
+    env: {
+      PATH: process.env.path,
+      PORT: currentPortMap.PORT,
+    },
+  });
 
-// //     // If explicit
-// //     var dispatchRoutes = configFile.dispatch
-// //       .filter((x) => x.service === serviceConfig.service)
-// //       .map((routeConfig) =>
-// //         routeConfig.url.substring(1, routeConfig.url.length - 2)
-// //       );
+  const prefix = chalk.magenta(`[${currentPortMap.index}] ${serviceConfig.service}`.padEnd(15) + '|');
 
-// //     return [curApp, dispatchRoutes, serviceConfig.service];
-// //   });
-// //   console.log("✓ YAMLs processed for services");
-// // }
+  subprocess.stdout.on('data', (data) => {
+    const lines = `${data}`.split('\n');
+    lines.map((x: string) => console.log(prefix + `${x}`));
+  });
 
-// // function mountRoutes() {
-// //   serviceMap.map((service, index) => {
-// //     app.use(service[1], service[0]);
-// //     table.push([
-// //       service[2],
-// //       `http://localhost:` + `${port}`.bold + `${service[1]}`.yellow,
-// //     ]);
-// //   });
-// //   console.log("✓ Routes Mounted");
-// // }
+  subprocess.on('error', (err) => {
+    console.log(prefix + `${err}`);
+  });
 
-// // Mapping services to dispatch
+  app.use(
+      serviceConfig.routes,
+      createProxyMiddleware({
+        target: `http://localhost:${currentPortMap.PORT}`,
+        changeOrigin: true,
+      }),
+  );
 
-// // Listening
+  table.push([
+    serviceConfig.service,
+    `http://localhost:${currentPortMap.PORT}`,
+    `${serviceConfig.routes}`,
+  ]);
+}
 
-// // readCli();
-// // readConfigFile();
-// // processConfig();
-// // mountRoutes();
+function processConfigFile() {
+  serviceMap = configFile.service.map((servicePath, index) => {
+    const serviceConfig: serviceConfiguration = yaml.parse(
+        fs.readFileSync(`${servicePath}/app.yaml`, 'utf8'),
+    );
 
-// const { spawn } = require("child_process");
-// const { createProxyMiddleware } = require("http-proxy-middleware");
-// const chalk = require("chalk");
+    const dispatchRoutes: [] = configFile.dispatch.
+        filter((service: any) => service.service === serviceConfig.service)
+        .map((routeConfig: any) => routeConfig.url.substring(1, routeConfig.url.length - 2));
 
-// const portMapping = {};
-// const colorList = [chalk.blue, chalk.green, chalk.magenta, chalk.cyan];
+    serviceConfig.path = servicePath;
+    serviceConfig.routes = dispatchRoutes;
+    createApp(serviceConfig);
+    return null;
+  });
+}
 
-// function addPortMap(serviceName) {
-//   portMapping[serviceName] = {
-//     index: Object.keys(portMapping).length,
-//     PORT: 4000 + 40 * Object.keys(portMapping).length,
-//   };
-//   // console.log(portMapping);
-//   return portMapping[serviceName];
-// }
 
-// function createApp(serviceConfig) {
-//   //console.log(serviceConfig);
-//   var command = "";
-//   if (serviceConfig.runtime === "nodejs14") {
-//     command = "node";
-//   } else {
-//     throw Error(
-//       `Invalid runtime ${serviceConfig.runtime} for service:${serviceConfig.service}`
-//     );
-//   }
-
-//   const currentPortMap = addPortMap(serviceConfig.service);
-
-//   const subprocess = spawn(command, [`${serviceConfig.path}/index.js`], {
-//     cwd: `${process.cwd()}`,
-//     env: {
-//       PATH: process.env.PATH,
-//       PORT: currentPortMap.PORT,
-//     },
-//   });
-
-//   const prefix = colorList[currentPortMap.index % colorList.length](
-//     `[${currentPortMap.index}] ${serviceConfig.service}`.padEnd(15) + "|"
-//   );
-
-//   subprocess.stdout.on("data", (data) => {
-//     const lines = `${data}`.split("\n");
-//     lines.map((x) => console.log(prefix + `${x}`));
-//   });
-
-//   subprocess.on("error", (err) => {
-//     console.log(prefix + `${err}`);
-//   });
-
-//   app.use(
-//     serviceConfig.routes,
-//     createProxyMiddleware({
-//       target: `http://localhost:${currentPortMap.PORT}`,
-//       changeOrigin: true,
-//     })
-//   );
-
-//   table.push([
-//     serviceConfig.service,
-//     `http://localhost:${currentPortMap.PORT}`,
-//     `${serviceConfig.routes}`,
-//   ]);
-// }
-
-// function processConfig() {
-//   serviceMap = configFile.services.map((servicePath, index) => {
-//     var serviceConfig = yaml.parse(
-//       fs.readFileSync(`${servicePath}/app.yaml`, "utf8")
-//     );
-
-//     var dispatchRoutes = configFile.dispatch
-//       .filter((x) => x.service === serviceConfig.service)
-//       .map((routeConfig) =>
-//         routeConfig.url.substring(1, routeConfig.url.length - 2)
-//       );
-
-//     serviceConfig.path = servicePath;
-//     serviceConfig.routes = dispatchRoutes;
-//     createApp(serviceConfig);
-//   });
-// }
-
-// readConfigFile();
-// processConfig();
-
-// app.listen(3030, () => console.log(`\n${table.toString()}\n`));
+app.listen(port, () => console.log(`Running the following services:\n${table.toString()}\n`));
