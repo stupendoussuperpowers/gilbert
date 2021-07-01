@@ -1,15 +1,24 @@
 {
   "name": "gilbert",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "An assistant to help with managing microservices compatible with Google App Engine configurations, in dev.",
   "main": "index.js",
+  "private": false,
   "scripts": {
     "start": "tsc && ts-node src/index",
     "build": "tsc src/index"
   },
   "bin": {
-    "gilbert": "./dist/index.js"
+    "gilbert": "bin/gilbert"
   },
+  "publishConfig": {
+    "access": "public",
+    "cache": "cache/.npm"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/stupendoussuperpowers/gilbert.git"
@@ -44,6 +53,7 @@
     "chalk": "^2.4.2",
     "cli-table": "^0.3.6",
     "colors": "^1.4.0",
+    "esm": "^3.2.25",
     "express": "^4.17.1",
     "http-proxy-middleware": "^2.0.0",
     "listr": "^0.14.3",
