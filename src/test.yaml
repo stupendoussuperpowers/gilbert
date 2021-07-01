@@ -1,0 +1,9 @@
+services:
+  - "./doublef"
+  - "./ace"
+
+dispatch:
+  - url: "*/ace/*"
+    service: ace
+  - url: "*/doublef/*"
+    service: doublef
