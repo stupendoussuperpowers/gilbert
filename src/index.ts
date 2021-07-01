@@ -7,15 +7,22 @@ import {spawn} from 'child_process';
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import chalk, {Chalk} from 'chalk';
 import path from 'path';
+import yargs from 'yargs/yargs';
+import {hideBin} from 'yargs/helpers';
 
 const app: express.Application = express();
 
-interface configuration {
+const argv = yargs(hideBin(process.argv)).options({
+  configFilePath: {type: 'string', default: 'config.yaml'},
+  port: {type: 'number', default: 5050},
+}).parseSync();
+
+interface Configuration {
     dispatch: any,
     services: [],
 }
 
-interface serviceConfiguration {
+interface ServiceConfiguration {
     service: string,
     path: string,
     routes: [],
@@ -23,45 +30,65 @@ interface serviceConfiguration {
     colorStyle: any,
 }
 
-interface LooseObject {
+type LooseObject = {
   [key: string] : any
 }
 
-const configFilePath = 'config.yaml';
-const port = 5050;
+type PortMap = {
+  index: number,
+  PORT: number,
+}
 
-let file :string;
-let configFile:configuration;
+interface GilbertConfiguartion {
+  configFilePath?: string,
+  configFile?:Configuration,
+  port?: number,
+  portMapping?: {[key:string] : PortMap},
+  serviceMap?: LooseObject,
+}
 
-let serviceMap: Object;
+let gilbertConfig: GilbertConfiguartion = {};
 
 const table = new Table({
   head: ['service', 'host', 'dispatched routes'],
 });
 
+
+function parseCli() {
+  gilbertConfig = {
+    configFilePath: argv.configFilePath,
+    port: argv.port,
+  };
+}
+
 function readConfigFile() {
-  file = fs.readFileSync(path.join(__dirname, `./${configFilePath}`), 'utf8');
-  configFile = yaml.parse(file);
+  const file :string = fs.readFileSync(path.join(__dirname, `./${gilbertConfig.configFilePath}`), 'utf8');
+  gilbertConfig.configFile = yaml.parse(file);
   // If path provided
-  if (!Array.isArray(configFile.dispatch)) {
-    configFile.dispatch = yaml.parse(
-        fs.readFileSync(`${configFile.dispatch}`, 'utf8'),
-    ).dispatch;
+  if (!Array.isArray(gilbertConfig.configFile?.dispatch)) {
+    if (gilbertConfig.configFile) {
+      gilbertConfig.configFile.dispatch = yaml.parse(
+          fs.readFileSync(`${gilbertConfig.configFile?.dispatch}`, 'utf8'),
+      ).dispatch;
+    }
   }
   console.log('✓ Read config file');
 }
 
 const portMapping: LooseObject = {};
 
-function addPortMap(serviceName: string) {
-  portMapping[serviceName] = {
-    index: Object.keys(portMapping).length,
-    PORT: 4000 + 40* Object.keys(portMapping).length,
+function addPortMap(serviceName: string, index: number) {
+  const newMap: PortMap = {
+    index: index,
+    PORT: 4000 + 40*index,
   };
-  return portMapping[serviceName];
+
+  // portMapping?[serviceName] = newMap: Object;
+
+  return newMap;
 }
 
-function createApp(serviceConfig: serviceConfiguration) {
+function createApp(serviceConfig: ServiceConfiguration, index: number) {
   let command = '';
   if (serviceConfig.runtime === 'nodejs14') {
     command = 'node';
@@ -69,13 +96,14 @@ function createApp(serviceConfig: serviceConfiguration) {
     throw Error(`Invalid runtime for ${serviceConfig.service}`);
   }
 
-  const currentPortMap = addPortMap(serviceConfig.service);
+  const currentPortMap = addPortMap(serviceConfig.service, index);
+  console.log('Here:', currentPortMap);
 
   const subprocess = spawn(command, [path.join(__dirname, `${serviceConfig.path}/index.js`)], {
     cwd: `${process.cwd()}`,
     env: {
       PATH: process.env.path,
-      PORT: currentPortMap.PORT,
+      PORT: String(currentPortMap.PORT),
     },
   });
 
@@ -113,26 +141,26 @@ function processConfigFile() {
     chalk.green,
   ];
 
-  serviceMap = configFile.services.map((servicePath, index) => {
-    const serviceConfig: serviceConfiguration = yaml.parse(
+  gilbertConfig.configFile?.services.map((servicePath, index) => {
+    const serviceConfig: ServiceConfiguration = yaml.parse(
         fs.readFileSync(path.join(__dirname, `${servicePath}/app.yaml`), 'utf8'),
     );
 
-    const dispatchRoutes: [] = configFile.dispatch.
+    const dispatchRoutes: [] = gilbertConfig.configFile?.dispatch.
         filter((service: any) => service.service === serviceConfig.service)
         .map((routeConfig: any) => routeConfig.url.substring(1, routeConfig.url.length - 2));
 
     serviceConfig.path = servicePath;
     serviceConfig.routes = dispatchRoutes;
     serviceConfig.colorStyle = colorMaps[index%colorMaps.length];
-    createApp(serviceConfig);
+    createApp(serviceConfig, index);
     return null;
   });
 }
 
+
+parseCli();
 readConfigFile();
 processConfigFile();
 
-console.log(__dirname);
-
-app.listen(port, () => console.log(`Running the following services:\n${table.toString()}\n`));
+app.listen(gilbertConfig.port, () => console.log(`Running the following services:\n${table.toString()}\n`));

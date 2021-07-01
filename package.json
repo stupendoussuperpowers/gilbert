@@ -7,6 +7,9 @@
     "start": "tsc && ts-node src/index",
     "build": "tsc src/index"
   },
+  "bin": {
+    "gilbert": "./dist/index.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/stupendoussuperpowers/gilbert.git"
@@ -36,6 +39,7 @@
     "@types/colors": "^1.2.1",
     "@types/http-proxy-middleware": "^1.0.0",
     "@types/yaml": "^1.9.7",
+    "@types/yargs": "^17.0.0",
     "chalk": "^2.4.2",
     "cli-table": "^0.3.6",
     "colors": "^1.4.0",
@@ -43,6 +47,7 @@
     "http-proxy-middleware": "^2.0.0",
     "listr": "^0.14.3",
     "path": "^0.12.7",
-    "yaml": "^1.10.2"
+    "yaml": "^1.10.2",
+    "yargs": "^17.0.1"
   }
 }
