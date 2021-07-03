@@ -16,6 +16,12 @@
     ],
     "rules": {
         "require-jsdoc": 0,
-        "no-unused-vars": 0
-    }
+        "no-unused-vars": 0,
+        "max-len": 0
+    },
+    "ignorePatterns": [
+        "dist",
+        "bin",
+        "*.js"
+    ]
 }

@@ -1,6 +1,6 @@
 services:
-  - "./test/ace"
-  - "./test/doublef"
+  - "./ace"
+  - "./doublef"
 
 dispatch:
   - url: "*/ace/*"

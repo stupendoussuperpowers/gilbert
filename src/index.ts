@@ -86,7 +86,10 @@ function parseCli() {
 
 function readConfigFile() {
   try {
-    const file :string = fs.readFileSync(path.join(__dirname, `./${gilbertConfig.configFilePath}`), 'utf8');
+    // const file :string = fs.readFileSync(path.join(process.cwd(), `./${gilbertConfig.configFilePath}`), 'utf8');
+    // gilbertConfig.configFile = yaml.parse(file);
+
+    const file :string = fs.readFileSync('/home/sanchit/Code/gilbert/src/config.yaml', 'utf8');
     gilbertConfig.configFile = yaml.parse(file);
 
     if (!Array.isArray(gilbertConfig.configFile?.dispatch)) {
@@ -133,7 +136,18 @@ function createApp(serviceConfig: ServiceConfiguration, index: number) {
     const currentPortMap = addPortMap(serviceConfig.service, index);
     console.log('Here:', currentPortMap);
 
-    const subprocess = spawn(command, [path.join(__dirname, `${serviceConfig.path}/index.js`)], {
+    // const subprocess = spawn(command, [path.join(process.cwd(), `${serviceConfig.path}/index.js`)], {
+    //   cwd: `${process.cwd()}`,
+    //   env: {
+    //     PATH: process.env.path,
+    //     PORT: String(currentPortMap.PORT),
+    //   },
+    // });
+
+    const cmd = 'echo hellothere && node test/ace/index.js';
+    const cmdarray = cmd.split(' ');
+    // let command = spawn(cmdarray.shift(), cmdarray);
+    const subprocess = spawn(cmdarray.shift() ?? '', cmdarray, {
       cwd: `${process.cwd()}`,
       env: {
         PATH: process.env.path,
@@ -193,7 +207,7 @@ function processConfigFile() {
   try {
     gilbertConfig.configFile?.services.map((servicePath, index) => {
       const serviceConfig: ServiceConfiguration = yaml.parse(
-          fs.readFileSync(path.join(__dirname, `${servicePath}/app.yaml`), 'utf8'),
+          fs.readFileSync(path.join(process.cwd(), `/src/${servicePath}/app.yaml`), 'utf8'),
       );
 
       const dispatchRoutes: [] = gilbertConfig.configFile?.dispatch.
@@ -236,7 +250,36 @@ function pipeline(functionList: Function[]) {
 // readConfigFile();
 // processConfigFile();
 
-pipeline([parseCli, readConfigFile, processConfigFile]);
+// pipeline([parseCli, readConfigFile, processConfigFile]);
+
+// function watchTesting() {
+//   fs.watch(path.join(__dirname, 'ace'), (eventName, fileName) => {
+//     console.log(`Event:${eventName} File:${fileName}`);
+//   });
+// }
+
+// watchTesting();
+
+// console.log(process.env.PATH);
+const subprocess = spawn('node', [path.join(__dirname, 'notainer.js'), 'node ./test/ace/index.js'], {
+  cwd: __dirname,
+  env: {
+    PATH: process.env.PATH,
+    PORT: `${7000}`,
+  },
+});
+
+const prefix = 'notainer.js | ';
+
+subprocess.stdout.on('data', (data) => {
+  const lines = `${data}`.split('\n').filter((x) => x!='');
+
+  lines.map((x: string) => console.log(prefix + `${x}`));
+});
+
+subprocess.on('error', (err) => {
+  console.log(prefix + `${err}`);
+});
 
 app.listen(
     gilbertConfig.port,

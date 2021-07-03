@@ -1,6 +1,6 @@
 {
   "name": "gilbert",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "An assistant to help with managing microservices compatible with Google App Engine configurations, in dev.",
   "main": "index.js",
   "private": false,
@@ -17,7 +17,16 @@
   },
   "files": [
     "bin/",
-    "dist/"
+    "dist/",
+    "README.md"
+  ],
+  "keywords": [
+    "app engine",
+    "microservices",
+    "app",
+    "developer tools",
+    "engine",
+    "services"
   ],
   "repository": {
     "type": "git",
