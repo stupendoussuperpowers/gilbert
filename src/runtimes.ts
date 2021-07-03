@@ -1,33 +1,42 @@
 import fs from 'fs';
+import path from 'path';
+
+interface RuntimeContext {
+  root: string,
+}
 
 interface Runtime {
     runtime: string,
     command: string,
-    context: string[],
+    context: RuntimeContext,
 }
 
 interface RuntimeInput {
     runtime: string,
-    context: string [],
+    context: RuntimeContext,
 }
 
 export function createRuntime(input: RuntimeInput) {
   const finalRuntime: Runtime = {
     runtime: input.runtime,
     command: '',
-    context: [],
+    context: input.context,
   };
 
   if (input.runtime == 'nodejs14') {
     // Read script with package.json
-    const packagejson = JSON.parse(fs.readFileSync(input.context.join('/'), 'utf8'));
+    const packagejson = JSON.parse(
+        fs.readFileSync(
+            path.join(input.context.root, 'package.json'), 'utf8',
+        ),
+    );
 
-    // dev > start > node index.js
+    // Command priority: dev > start > node index.js
 
     if (packagejson.scripts?.dev) {
       finalRuntime.command = packagejson.scripts.dev;
     } else if (packagejson.scripts?.start) {
-      finalRuntime.command =packagejson.scripts.start;
+      finalRuntime.command = packagejson.scripts.start;
     } else {
       // In case no start / dev script
       finalRuntime.command = 'node index.js';
