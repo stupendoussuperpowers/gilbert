@@ -5,8 +5,6 @@ const chalk = require("chalk");
 function main() {
   commandList = process.argv.splice(2, process.argv.length);
 
-  console.log(commandList);
-  console.log("Notainer.js File");
   const shellproc = spawn("/bin/sh", [], {
     cwd: process.cwd(),
     env: {
@@ -14,9 +12,6 @@ function main() {
       PORT: process.env.PORT,
     },
   });
-  // console.log(process.env.PWD);
-
-  // console.log(process.env.PORT);
 
   shellproc.stdout.on("data", (data) => {
     `${data}`.split("\n").map((x) => console.log(x));
@@ -31,13 +26,13 @@ function main() {
   // });
 
   commandList[0].split("&&").map((x, i) => {
-    console.log(`${i} -> ${x.trim(" ")}\n`);
+    // console.log(`${i} -> ${x.trim(" ")}\n`);
     shellproc.stdin.write(`${x.trim(" ")}\n`, (err) => {
       if (err) {
         console.log(err);
       }
     });
-    console.log("Ended", i);
+    // console.log("Ended", i);
   });
 }
 

@@ -126,9 +126,6 @@ function addPortMap(serviceName: string, index: number) {
 
 function createApp(serviceConfig: ServiceConfiguration, index: number) {
   try {
-    // console.log(serviceConfig.path);
-
-    // console.log('This is the path:=', path.join(__dirname, serviceConfig.path));
     const currentRuntime = createRuntime({
       runtime: serviceConfig.runtime,
       context: {
@@ -136,17 +133,13 @@ function createApp(serviceConfig: ServiceConfiguration, index: number) {
       },
     });
 
-    console.log(currentRuntime);
-
     const currentPortMap = addPortMap(serviceConfig.service, index);
-    console.log('Here:', currentPortMap);
 
-    console.log(path.join(__dirname, 'notainer.js'));
-    console.log(process.env.PATH, process.cwd());
+    // console.log(currentRuntime.context.root);
 
     const subprocess = spawn('node',
         [path.join(__dirname, 'notainer.js'), currentRuntime.command], {
-          cwd: process.cwd(),
+          cwd: currentRuntime.context.root,
           env: {
             PATH: process.env.PATH,
             PORT: `${currentPortMap.PORT}`,
