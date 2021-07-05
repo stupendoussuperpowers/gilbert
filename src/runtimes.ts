@@ -1,17 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 
-interface RuntimeContext {
+export interface RuntimeContext {
   root: string,
 }
 
-interface Runtime {
+export interface Runtime {
     runtime: string,
     command: string,
     context: RuntimeContext,
 }
 
-interface RuntimeInput {
+export interface RuntimeInput {
     runtime: string,
     context: RuntimeContext,
 }

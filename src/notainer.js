@@ -1,19 +1,22 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
+const chalk = require("chalk");
 
 function main() {
   commandList = process.argv.splice(2, process.argv.length);
 
   console.log(commandList);
-
-  console.log("Hello from the container.js file");
+  console.log("Notainer.js File");
   const shellproc = spawn("/bin/sh", [], {
     cwd: process.cwd(),
     env: {
       PATH: process.env.PATH,
-      PORT: `${7000}`,
+      PORT: process.env.PORT,
     },
   });
+  // console.log(process.env.PWD);
+
+  // console.log(process.env.PORT);
 
   shellproc.stdout.on("data", (data) => {
     `${data}`.split("\n").map((x) => console.log(x));

@@ -8,7 +8,7 @@ import {createProxyMiddleware} from 'http-proxy-middleware';
 import chalk, {Chalk} from 'chalk';
 import path from 'path';
 import yargs from 'yargs/yargs';
-import Listr from 'listr';
+import {createRuntime, RuntimeContext, RuntimeInput, Runtime} from './runtimes';
 import {hideBin} from 'yargs/helpers';
 
 const app: express.Application = express();
@@ -23,7 +23,7 @@ interface Configuration {
     services: [],
 }
 
-interface ServiceConfiguration {
+export interface ServiceConfiguration {
     service: string,
     path: string,
     routes: [],
@@ -126,34 +126,33 @@ function addPortMap(serviceName: string, index: number) {
 
 function createApp(serviceConfig: ServiceConfiguration, index: number) {
   try {
-    let command = '';
-    if (serviceConfig.runtime === 'nodejs14') {
-      command = 'node';
-    } else {
-      throw Error(`Invalid runtime for ${serviceConfig.service}`);
-    }
+    // console.log(serviceConfig.path);
+
+    // console.log('This is the path:=', path.join(__dirname, serviceConfig.path));
+    const currentRuntime = createRuntime({
+      runtime: serviceConfig.runtime,
+      context: {
+        root: path.join(__dirname, serviceConfig.path),
+      },
+    });
+
+    console.log(currentRuntime);
 
     const currentPortMap = addPortMap(serviceConfig.service, index);
     console.log('Here:', currentPortMap);
 
-    // const subprocess = spawn(command, [path.join(process.cwd(), `${serviceConfig.path}/index.js`)], {
-    //   cwd: `${process.cwd()}`,
-    //   env: {
-    //     PATH: process.env.path,
-    //     PORT: String(currentPortMap.PORT),
-    //   },
-    // });
+    console.log(path.join(__dirname, 'notainer.js'));
+    console.log(process.env.PATH, process.cwd());
 
-    const cmd = 'echo hellothere && node test/ace/index.js';
-    const cmdarray = cmd.split(' ');
-    // let command = spawn(cmdarray.shift(), cmdarray);
-    const subprocess = spawn(cmdarray.shift() ?? '', cmdarray, {
-      cwd: `${process.cwd()}`,
-      env: {
-        PATH: process.env.path,
-        PORT: String(currentPortMap.PORT),
-      },
-    });
+    const subprocess = spawn('node',
+        [path.join(__dirname, 'notainer.js'), currentRuntime.command], {
+          cwd: process.cwd(),
+          env: {
+            PATH: process.env.PATH,
+            PORT: `${currentPortMap.PORT}`,
+          },
+        },
+    );
 
     const prefix = serviceConfig.colorStyle(`[${currentPortMap.index}] ${serviceConfig.service}`.padEnd(15) + '|');
 
@@ -188,6 +187,7 @@ function createApp(serviceConfig: ServiceConfiguration, index: number) {
     };
     return result;
   } catch (e:any) {
+    console.log(e);
     const result: ExecutionResult = {
       success: false,
       msg: e,
@@ -250,7 +250,7 @@ function pipeline(functionList: Function[]) {
 // readConfigFile();
 // processConfigFile();
 
-// pipeline([parseCli, readConfigFile, processConfigFile]);
+pipeline([parseCli, readConfigFile, processConfigFile]);
 
 // function watchTesting() {
 //   fs.watch(path.join(__dirname, 'ace'), (eventName, fileName) => {
@@ -261,25 +261,14 @@ function pipeline(functionList: Function[]) {
 // watchTesting();
 
 // console.log(process.env.PATH);
-const subprocess = spawn('node', [path.join(__dirname, 'notainer.js'), 'node ./test/ace/index.js'], {
-  cwd: __dirname,
-  env: {
-    PATH: process.env.PATH,
-    PORT: `${7000}`,
-  },
-});
+// const subprocess = spawn('node', [path.join(__dirname, 'notainer.js'), 'node ./test/ace/index.js'], {
+//   cwd: __dirname,
+//   env: {
+//     PATH: process.env.PATH,
+//     PORT: `${7000}`,
+//   },
+// });
 
-const prefix = 'notainer.js | ';
-
-subprocess.stdout.on('data', (data) => {
-  const lines = `${data}`.split('\n').filter((x) => x!='');
-
-  lines.map((x: string) => console.log(prefix + `${x}`));
-});
-
-subprocess.on('error', (err) => {
-  console.log(prefix + `${err}`);
-});
 
 app.listen(
     gilbertConfig.port,
