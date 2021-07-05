@@ -1,15 +1,21 @@
 /* eslint-disable max-len */
+
+import path from 'path';
+require('dotenv').config({path: path.join(__dirname, '.env')});
 import express from 'express';
 import yaml from 'yaml';
 import fs from 'fs';
 import Table from 'cli-table';
 import {spawn} from 'child_process';
 import {createProxyMiddleware} from 'http-proxy-middleware';
-import chalk, {Chalk} from 'chalk';
-import path from 'path';
+import chalk from 'chalk';
 import yargs from 'yargs/yargs';
 import {createRuntime, RuntimeContext, RuntimeInput, Runtime} from './runtimes';
 import {hideBin} from 'yargs/helpers';
+
+import {GilbertConfiguartion, ExecutionResult, PortMap, ServiceConfiguration} from './types';
+
+const rootPath: string = process.env.GILBERT_MODE === 'TEST' ? __dirname : process.cwd();
 
 const app: express.Application = express();
 
@@ -17,41 +23,6 @@ const argv = yargs(hideBin(process.argv)).options({
   configFilePath: {type: 'string', default: 'config.yaml'},
   port: {type: 'number', default: 5050},
 }).parseSync();
-
-interface Configuration {
-    dispatch: any,
-    services: [],
-}
-
-export interface ServiceConfiguration {
-    service: string,
-    path: string,
-    routes: [],
-    runtime: string,
-    colorStyle: any,
-}
-
-type LooseObject = {
-  [key: string] : any
-}
-
-type PortMap = {
-  index: number,
-  PORT: number,
-}
-
-interface GilbertConfiguartion {
-  configFilePath?: string,
-  configFile?:Configuration,
-  port?: number,
-  portMapping?: {[key:string] : PortMap},
-  serviceMap?: LooseObject,
-}
-
-interface ExecutionResult {
-  success: boolean,
-  msg?: string,
-}
 
 let gilbertConfig: GilbertConfiguartion = {};
 
@@ -86,15 +57,13 @@ function parseCli() {
 
 function readConfigFile() {
   try {
-    // console.log(gilbertConfig.configFilePath);
-
-    const file :string = fs.readFileSync(path.join(/* process.cwd()*/ __dirname, 'config.yaml'), 'utf8');
+    const file :string = fs.readFileSync(path.join(rootPath, 'config.yaml'), 'utf8');
     gilbertConfig.configFile = yaml.parse(file);
 
     if (!Array.isArray(gilbertConfig.configFile?.dispatch)) {
       if (gilbertConfig.configFile) {
         gilbertConfig.configFile.dispatch = yaml.parse(
-            fs.readFileSync(`${gilbertConfig.configFile?.dispatch}`, 'utf8'),
+            fs.readFileSync(path.join(rootPath, `${gilbertConfig.configFile?.dispatch}`), 'utf8'),
         ).dispatch;
       }
     }
@@ -123,15 +92,18 @@ function addPortMap(serviceName: string, index: number) {
 
 function createApp(serviceConfig: ServiceConfiguration, index: number) {
   try {
+    // Get runtime info, path, command etc.
     const currentRuntime = createRuntime({
       runtime: serviceConfig.runtime,
       context: {
-        root: path.join(__dirname, serviceConfig.path),
+        root: path.join(rootPath, serviceConfig.path),
       },
     });
 
+    // Assign port for the current App.
     const currentPortMap = addPortMap(serviceConfig.service, index);
 
+    // Spawn a notainer.js and run the command in that shell.
     const subprocess = spawn('node',
         [path.join(__dirname, 'notainer.js'), currentRuntime.command], {
           cwd: currentRuntime.context.root,
@@ -154,6 +126,8 @@ function createApp(serviceConfig: ServiceConfiguration, index: number) {
       console.log(prefix + `${err}`);
     });
 
+
+    // Add proxy for the service.
     app.use(
         serviceConfig.routes,
         createProxyMiddleware({
@@ -163,6 +137,8 @@ function createApp(serviceConfig: ServiceConfiguration, index: number) {
         }),
     );
 
+
+    // Add data to table.
     table.push([
       currentPortMap.index,
       serviceConfig.service,
@@ -196,7 +172,7 @@ function processConfigFile() {
   try {
     gilbertConfig.configFile?.services.map((servicePath, index) => {
       const serviceConfig: ServiceConfiguration = yaml.parse(
-          fs.readFileSync(path.join(process.cwd(), `/src/${servicePath}/app.yaml`), 'utf8'),
+          fs.readFileSync(path.join(rootPath, `/${servicePath}/app.yaml`), 'utf8'),
       );
 
       const dispatchRoutes: [] = gilbertConfig.configFile?.dispatch.
@@ -239,20 +215,16 @@ function pipeline(functionList: Function[]) {
 
 pipeline([parseCli, readConfigFile, processConfigFile]);
 
-// parseCli();
-// readConfigFile();
-
 // function watchTesting() {
 //   fs.watch(path.join(__dirname, 'ace'), (eventName, fileName) => {
 //     console.log(`Event:${eventName} File:${fileName}`);
 //   });
 // }
-
 // watchTesting();
 
 app.listen(
     gilbertConfig.port,
     () => console.log(
-        `[${gilbertConfig.port}] Running the following services:\n${table.toString()}\n`,
+        chalk.green(`[${gilbertConfig.port}]`) + `Running the following services:\n${table.toString()}\n`,
     ),
 );
