@@ -26,6 +26,8 @@ export interface GilbertConfiguartion {
   port?: number,
   portMapping?: {[key:string] : PortMap},
   serviceMap?: LooseObject,
+  process?: string,
+  processMode?:string,
 }
 
 export interface ExecutionResult {

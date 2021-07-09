@@ -10,6 +10,7 @@ import {spawn} from 'child_process';
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import chalk from 'chalk';
 import yargs from 'yargs/yargs';
+import Yargs from 'yargs';
 import {createRuntime, RuntimeContext, RuntimeInput, Runtime} from './runtimes';
 import {hideBin} from 'yargs/helpers';
 
@@ -17,12 +18,33 @@ import {GilbertConfiguartion, ExecutionResult, PortMap, ServiceConfiguration} fr
 
 const rootPath: string = process.env.GILBERT_MODE === 'TEST' ? __dirname : process.cwd();
 
+const helpString = `
+
+  Run using: 
+  
+    gilbert run dev [--configFilePath; default=config.yaml] [--port; default=5050]
+  
+  Config.yaml specification:
+
+    services:
+      [- "/path/to/service/with/app.yaml" ...]
+
+    dispatch:
+      [- url: "*/[servicePrefix]/*"
+        service: [serviceName] ...]
+
+`;
+
 const app: express.Application = express();
 
 const argv = yargs(hideBin(process.argv)).options({
   configFilePath: {type: 'string', default: 'config.yaml'},
   port: {type: 'number', default: 5050},
-}).parseSync();
+}).help(false).parseSync();
+
+
+Yargs.scriptName('run dev')
+    .usage(helpString);
 
 let gilbertConfig: GilbertConfiguartion = {};
 
@@ -37,10 +59,17 @@ const table = new Table({
 
 function parseCli() {
   try {
+    const [command, mode] = process.argv.splice(2, 2);
+
+
     gilbertConfig = {
       configFilePath: argv.configFilePath,
       port: argv.port,
     };
+
+    gilbertConfig.process = command;
+    gilbertConfig.processMode = mode;
+
     const result: ExecutionResult = {
       success: true,
       msg: 'CLI Parsed',
@@ -213,18 +242,27 @@ function pipeline(functionList: Function[]) {
   }
 }
 
-pipeline([parseCli, readConfigFile, processConfigFile]);
+parseCli();
 
+if (gilbertConfig.process === 'run') {
+  if (gilbertConfig.processMode === 'dev') {
+    pipeline([readConfigFile, processConfigFile]);
+
+    app.listen(
+        gilbertConfig.port,
+        () => console.log(
+            chalk.green(`[${gilbertConfig.port}]`) + `Running the following services:\n${table.toString()}\n`,
+        ),
+    );
+  } else {
+    console.log(chalk.red(`[ERROR] Mode ${gilbertConfig.processMode} not supported.`));
+  }
+} else {
+  console.log(helpString);
+}
 // function watchTesting() {
 //   fs.watch(path.join(__dirname, 'ace'), (eventName, fileName) => {
 //     console.log(`Event:${eventName} File:${fileName}`);
 //   });
 // }
 // watchTesting();
-
-app.listen(
-    gilbertConfig.port,
-    () => console.log(
-        chalk.green(`[${gilbertConfig.port}]`) + `Running the following services:\n${table.toString()}\n`,
-    ),
-);

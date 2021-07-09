@@ -2,3 +2,6 @@
 /dist/ace
 /dist/doublef
 /dist/*.yaml
+/notainer
+/.eslintrc.json
+/tsconfig.json

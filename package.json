@@ -1,6 +1,6 @@
 {
   "name": "gilbert",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "An assistant to help with managing microservices compatible with Google App Engine configurations, in dev.",
   "main": "index.js",
   "private": false,
